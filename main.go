@@ -2,6 +2,8 @@ package main
 
 import (
 	"flag"
+
+	. "github.com/colinperry07/stepdiff/pkg/parser"
 )
 
 func main() {
