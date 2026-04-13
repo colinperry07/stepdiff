@@ -68,15 +68,17 @@ func (l *Lexer) Next() (Token, error) {
 	switch {
 	case currentChar == '#':
 		return l.scanEntityRef()
+	case currentChar == '=':
+		return l.scanKeyword()
 	default: // placeholder
 		return Token{}, nil
 	}
 
 }
 
-// need New() func
-
 func (l *Lexer) peek(offset int) rune {
+	// gets current rune at cursor position and advances until it reaches the offset
+	// then returns the rune at the offset position without advancing the cursor
 
 	var runeSize int
 
@@ -101,13 +103,26 @@ func (l *Lexer) scanEntityRef() (Token, error) {
 
 	var sb strings.Builder
 
-	// consumes the leading hashtag(pound)
+	// consumes the leading hashtag
 	sb.WriteRune(l.advance())
 
+	// consume digits until we hit a non-digit
 	for unicode.IsDigit(l.peek(0)) {
 		sb.WriteRune(l.advance())
 	}
 
 	return Token{Type: ENTITY_REF, Literal: sb.String()}, nil
 
+}
+
+func (l *Lexer) scanKeyword() (Token, error) {
+
+	var sb strings.Builder
+
+	// consume uppercase letters until we hit a non-uppercase letter
+	for unicode.IsUpper(l.peek(1)) || l.peek(1) == '_'{
+		sb.WriteRune(l.advance())
+	}
+
+	return Token{Type: KEYWORD, Literal: sb.String()}, nil
 }
