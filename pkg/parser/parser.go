@@ -8,6 +8,7 @@ import (
 
 func ParseFile(filepath string) {
 
+	// os.ReadFile() returns a byte slice as opposed to os.Open()
 	file, err := os.ReadFile(filepath)
 	if err != nil {
 		log.Fatal(err)
@@ -20,6 +21,8 @@ func ParseFile(filepath string) {
 		log.Fatal(err)
 	}
 
-	fmt.Println(tokens)
+	for _, token := range tokens {
+		fmt.Println(token)
+	}
 
 }
