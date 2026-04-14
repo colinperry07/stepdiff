@@ -9,7 +9,7 @@ import (
 type TokenType int
 
 const (
-	SECTION_START = iota
+	SECTION_START = iota // either HEADER or DATA
 	ENTITY_REF
 	KEYWORD
 	STRING
@@ -38,6 +38,10 @@ type Lexer struct {
 	pos   int
 }
 
+func New(input []byte) *Lexer {
+	return &Lexer{input: input, pos: 0}
+}
+
 func (l *Lexer) Tokenize() ([]Token, error) {
 
 	var tokens []Token
@@ -61,41 +65,51 @@ func (l *Lexer) Tokenize() ([]Token, error) {
 }
 
 func (l *Lexer) Next() (Token, error) {
-	// current rune access is l.peek(0)
-
 	currentChar := l.peek(0)
 
 	switch {
+	case currentChar == 0:
+		return Token{Type: EOF}, nil
 	case currentChar == '#':
 		return l.scanEntityRef()
 	case currentChar == '=':
 		return l.scanKeyword()
-	default: // placeholder
+	default:
 		return Token{}, nil
 	}
 
 }
 
 func (l *Lexer) peek(offset int) rune {
-	// gets current rune at cursor position and advances until it reaches the offset
-	// then returns the rune at the offset position without advancing the cursor
-
-	var runeSize int
+	if l.pos >= len(l.input) {
+		return rune(0)
+	}
 
 	pos := l.pos
 	for i := 0; i < offset; i++ {
-		_, runeSize = utf8.DecodeRune(l.input[pos:])
+		if pos >= len(l.input) {
+			return rune(0)
+		}
+		_, runeSize := utf8.DecodeRune(l.input[pos:])
 		pos += runeSize
 	}
 
-	peekedRune, _ := utf8.DecodeRune(l.input[pos:])
+	if pos >= len(l.input) {
+		return rune(0)
+	}
 
+	peekedRune, _ := utf8.DecodeRune(l.input[pos:])
 	return peekedRune
 }
 
 func (l *Lexer) advance() rune {
+	if l.pos >= len(l.input) {
+		return rune(0)
+	}
+
 	peeked := l.peek(0)
-	l.pos++
+	_, runeSize := utf8.DecodeRune(l.input[l.pos:])
+	l.pos += runeSize
 	return peeked
 }
 
@@ -119,8 +133,10 @@ func (l *Lexer) scanKeyword() (Token, error) {
 
 	var sb strings.Builder
 
-	// consume uppercase letters until we hit a non-uppercase letter
-	for unicode.IsUpper(l.peek(1)) || l.peek(1) == '_'{
+	// consume the leading equals sign and following uppercase letters
+	sb.WriteRune(l.advance())
+
+	for unicode.IsUpper(l.peek(0)) || l.peek(0) == '_' {
 		sb.WriteRune(l.advance())
 	}
 
