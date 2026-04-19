@@ -9,7 +9,8 @@ import (
 type TokenType int
 
 const (
-	SECTION_START = iota // either HEADER or DATA
+	SECTION_START = iota
+	SECTION_END
 	ENTITY_REF
 	KEYWORD
 	STRING
@@ -38,6 +39,20 @@ type Lexer struct {
 	pos   int
 }
 
+var sectionStarters = map[string]bool{
+	"ISO-10303-21": true,
+	"HEADER":       true,
+	"DATA":         true,
+	"ANCHOR":       true,
+	"REFERENCE":    true,
+	"SIGNATURE":    true,
+}
+
+var sectionEnders = map[string]bool{
+	"ENDSEC":           true,
+	"END-ISO-10303-21": true,
+}
+
 func New(input []byte) *Lexer {
 	return &Lexer{input: input, pos: 0}
 }
@@ -64,23 +79,8 @@ func (l *Lexer) Tokenize() ([]Token, error) {
 
 }
 
-func (l *Lexer) Next() (Token, error) {
-	currentChar := l.peek(0)
-
-	switch {
-	case currentChar == 0:
-		return Token{Type: EOF}, nil
-	case currentChar == '#':
-		return l.scanEntityRef()
-	case currentChar == '=':
-		return l.scanKeyword()
-	default:
-		return Token{}, nil
-	}
-
-}
-
 func (l *Lexer) peek(offset int) rune {
+
 	if l.pos >= len(l.input) {
 		return rune(0)
 	}
@@ -100,6 +100,26 @@ func (l *Lexer) peek(offset int) rune {
 
 	peekedRune, _ := utf8.DecodeRune(l.input[pos:])
 	return peekedRune
+}
+
+func (l *Lexer) Next() (Token, error) {
+	currentChar := l.peek(0)
+
+	switch {
+	case currentChar == 0:
+		return Token{Type: EOF}, nil
+	case currentChar == '#':
+		return l.scanEntityRef()
+	case unicode.IsUpper(currentChar):
+		return l.scanKeyword()
+	case currentChar == '\'':
+		return l.scanString()
+	case currentChar == '(':
+		return Token{Type: LPAREN, Literal: "("}, nil
+	default:
+		return Token{}, nil
+	}
+
 }
 
 func (l *Lexer) advance() rune {
@@ -133,12 +153,43 @@ func (l *Lexer) scanKeyword() (Token, error) {
 
 	var sb strings.Builder
 
-	// consume the leading equals sign and following uppercase letters
-	sb.WriteRune(l.advance())
-
-	for unicode.IsUpper(l.peek(0)) || l.peek(0) == '_' {
+	for unicode.IsUpper(l.peek(0)) || l.peek(0) == '_' || l.peek(0) == '-' {
 		sb.WriteRune(l.advance())
 	}
 
-	return Token{Type: KEYWORD, Literal: sb.String()}, nil
+	word := sb.String()
+
+	if sectionStarters[word] {
+		return Token{Type: SECTION_START, Literal: word}, nil
+	} else if sectionEnders[word] {
+		return Token{Type: SECTION_END, Literal: word}, nil
+	} else {
+		return Token{Type: KEYWORD, Literal: word}, nil
+	}
+
+}
+
+// TOFIX: on double quotes within a string, detects second double quote as closing string quote.
+func (l *Lexer) scanString() (Token, error) {
+
+	var sb strings.Builder
+
+	l.advance() // consume opening quote
+
+	for {
+		char := l.advance()
+
+		if char != '\'' {
+			sb.WriteRune(char)
+		} else if char == '\'' {
+			if l.peek(1) == '\'' {
+				sb.WriteRune(char)
+			} else {
+				break
+			}
+		}
+	}
+
+	return Token{Type: STRING, Literal: sb.String()}, nil
+
 }
