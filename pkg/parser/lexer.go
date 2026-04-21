@@ -103,6 +103,11 @@ func (l *Lexer) peek(offset int) rune {
 }
 
 func (l *Lexer) Next() (Token, error) {
+	// Skip whitespace
+	for unicode.IsSpace(l.peek(0)) {
+		l.advance()
+	}
+
 	currentChar := l.peek(0)
 
 	switch {
@@ -115,7 +120,11 @@ func (l *Lexer) Next() (Token, error) {
 	case currentChar == '\'':
 		return l.scanString()
 	case currentChar == '(':
+		l.advance()
 		return Token{Type: LPAREN, Literal: "("}, nil
+	case currentChar == ')':
+		l.advance()
+		return Token{Type: RPAREN, Literal: ")"}, nil
 	default:
 		return Token{}, nil
 	}
@@ -127,9 +136,10 @@ func (l *Lexer) advance() rune {
 		return rune(0)
 	}
 
+	peekedRune := l.peek(0)
 	_, runeSize := utf8.DecodeRune(l.input[l.pos:])
 	l.pos += runeSize
-	return l.peek(0)
+	return peekedRune
 }
 
 func (l *Lexer) scanEntityRef() (Token, error) {
@@ -174,18 +184,18 @@ func (l *Lexer) scanString() (Token, error) {
 
 	l.advance() // consume opening quote
 
+scanning:
 	for {
 		char := l.advance()
 
-		if char != '\'' {
+		switch {
+		case char == '\'' && l.peek(0) != '\'':
+			break scanning
+		case char == '\'' && l.peek(0) == '\'':
 			sb.WriteRune(char)
-		} else if char == '\'' {
-			if l.peek(0) == '\'' {
-				sb.WriteRune(char)
-				l.advance() // consume the second quote
-			} else {
-				break
-			}
+			l.advance()
+		default:
+			sb.WriteRune(char)
 		}
 	}
 
