@@ -127,10 +127,9 @@ func (l *Lexer) advance() rune {
 		return rune(0)
 	}
 
-	peeked := l.peek(0)
 	_, runeSize := utf8.DecodeRune(l.input[l.pos:])
 	l.pos += runeSize
-	return peeked
+	return l.peek(0)
 }
 
 func (l *Lexer) scanEntityRef() (Token, error) {
@@ -169,7 +168,6 @@ func (l *Lexer) scanKeyword() (Token, error) {
 
 }
 
-// TOFIX: on double quotes within a string, detects second double quote as closing string quote.
 func (l *Lexer) scanString() (Token, error) {
 
 	var sb strings.Builder
@@ -182,8 +180,9 @@ func (l *Lexer) scanString() (Token, error) {
 		if char != '\'' {
 			sb.WriteRune(char)
 		} else if char == '\'' {
-			if l.peek(1) == '\'' {
+			if l.peek(0) == '\'' {
 				sb.WriteRune(char)
+				l.advance() // consume the second quote
 			} else {
 				break
 			}
