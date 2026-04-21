@@ -57,13 +57,16 @@ func New(input []byte) *Lexer {
 	return &Lexer{input: input, pos: 0}
 }
 
+// the mother function, just runs the lexers data through the next function
+// this is the only needed public function other than New
+
 func (l *Lexer) Tokenize() ([]Token, error) {
 
 	var tokens []Token
 
 	for {
 
-		token, err := l.Next()
+		token, err := l.next()
 		if err != nil {
 			return nil, err
 		}
@@ -78,6 +81,9 @@ func (l *Lexer) Tokenize() ([]Token, error) {
 	return tokens, nil
 
 }
+
+// pretty simple function that just takes the offset in runes, NOT BYTEs, 
+// and returns the current rune based on the assortment of bytes given
 
 func (l *Lexer) peek(offset int) rune {
 
@@ -102,8 +108,12 @@ func (l *Lexer) peek(offset int) rune {
 	return peekedRune
 }
 
-func (l *Lexer) Next() (Token, error) {
-	// Skip whitespace
+// peeks the current char and tries to predict the token type based on defined values.
+// some tokentypes dont require scan functions because they are single characters, like parentheses
+
+func (l *Lexer) next() (Token, error) {
+
+	// skip whitespace to avoid unwanted nil assignment
 	for unicode.IsSpace(l.peek(0)) {
 		l.advance()
 	}
@@ -131,6 +141,8 @@ func (l *Lexer) Next() (Token, error) {
 
 }
 
+// based on the lexers current position, it returns the rune the cursor is on 
+// and advances the position of the cursor to the start of the next rune
 func (l *Lexer) advance() rune {
 	if l.pos >= len(l.input) {
 		return rune(0)
@@ -142,14 +154,17 @@ func (l *Lexer) advance() rune {
 	return peekedRune
 }
 
+// all of these scanTokenType functions iterate through the file until they hit a defined end
+// e.g. strings start with ' and end with ' 
+// entityrefs start with # and end with any non-digit
+// etc etc..
+
 func (l *Lexer) scanEntityRef() (Token, error) {
 
 	var sb strings.Builder
 
-	// consumes the leading hashtag
 	sb.WriteRune(l.advance())
 
-	// consume digits until we hit a non-digit
 	for unicode.IsDigit(l.peek(0)) {
 		sb.WriteRune(l.advance())
 	}
@@ -182,7 +197,7 @@ func (l *Lexer) scanString() (Token, error) {
 
 	var sb strings.Builder
 
-	l.advance() // consume opening quote
+	l.advance()
 
 scanning:
 	for {
