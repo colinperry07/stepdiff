@@ -126,6 +126,23 @@ func TestTokenizeLeftParen(t *testing.T) {
 	}
 }
 
+func TestTokenizeRightParen(t *testing.T) {
+	input := []byte(")")
+	got, err := parser.New(input).Tokenize()
+	if err != nil {
+		t.Fatalf("Tokenize() returned error: %v", err)
+	}
+
+	want := []parser.Token{
+		{Type: parser.RPAREN, Literal: ")"},
+		{Type: parser.EOF, Literal: ""},
+	}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("Tokenize() = %#v, want %#v", got, want)
+	}
+}
+
 func TestTokenizeMultiple(t *testing.T) {
 	input := []byte("#123 TEST 'value'")
 	got, err := parser.New(input).Tokenize()
